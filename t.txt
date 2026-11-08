@@ -1,0 +1,21 @@
+else if (nextStep == 7)
+        {
+            if (chatType == "GROUP")
+            {
+                if (initialAmount < total)
+                {
+                    showMoreMsg(total, initialAmount, start);
+                }
+                else
+                {
+                    leaveGroup(con, chat);
+                }
+            }
+        }
+        else if (nextStep == 8)
+        {
+            if (chatType == "GROUP")
+            {
+                leaveGroup(con, chat);
+            }
+        }

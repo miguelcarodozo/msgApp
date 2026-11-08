@@ -1,0 +1,245 @@
+create database app;
+use app;
+
+create table user (
+    userId int auto_increment primary key,
+    cpf char(11) unique not null,
+    username varchar(50) not null,
+    systemAdmin boolean default false
+);
+
+
+
+CREATE TABLE chat (
+    chatId INT AUTO_INCREMENT PRIMARY KEY,
+    chatType ENUM('DM', 'GROUP') NOT NULL,
+    
+    user1 INT,
+    user2 INT,
+    
+    groupName VARCHAR(30),
+    description VARCHAR(500),
+    dtCreation DATE,
+    creator int,
+
+    FOREIGN KEY (creator) REFERENCES `user`(userId), 
+    FOREIGN KEY (user1) REFERENCES `user`(userId),
+    FOREIGN KEY (user2) REFERENCES `user`(userId),
+    
+    CONSTRAINT ck_chat_type CHECK (
+        (chatType = 'DM' AND user1 IS NOT NULL AND user2 IS NOT NULL AND groupName IS NULL AND dtCreation IS NULL AND creator is NULL)
+        OR
+        (chatType = 'GROUP' AND user1 IS NULL AND user2 IS NULL AND groupName IS NOT NULL AND dtCreation IS NOT NULL AND creator is not null)
+    )
+);
+
+create table userInChat (
+    chatId int,
+    userId int,
+    entranceDay datetime default current_timestamp not null,
+    foreign key (chatId) references chat (chatId),
+    foreign key (userId) references user (userId),
+    primary key (chatId, userId)
+);
+
+create table msg (
+    msgId int auto_increment primary key,
+    msgTxt varchar(500) not null,
+    chatId int,
+    sender int,
+    sendDt datetime default current_timestamp,
+    alterDt datetime default current_timestamp,
+    foreign key (chatId) references chat (chatId),
+    foreign key (sender) references user (userId)
+);
+
+create table hiddenMsg (
+    msgId int ,
+    userId int ,
+    hideDt datetime default current_timestamp not null,
+    foreign key (msgId) references msg (msgId),
+    foreign key (userId) references user (userId),
+    primary key (msgId, userId)
+);
+
+create table reports (
+    userId int,
+    chatId int,
+    dtReport date not null,
+    reason ENUM('SPAM', 'HATE', 'ILLEGAL'),
+    primary key (userId, chatId),
+    foreign key (userId) references user (userId),
+    foreign key (chatId) references chat (chatId)
+);
+
+delimiter $$
+create trigger personal_dm after insert on user 
+for each row 
+begin 
+insert into chat (chatType, user1, user2) values ("DM", new.userId, new.userId); 
+end$$
+delimiter;
+
+-- =====================================================
+-- 1) USERS (15 usuários)
+-- =====================================================
+INSERT INTO `user` (cpf, username) VALUES
+('11111111111', 'Alice Silva'),
+('22222222222', 'Bruno Costa'),
+('33333333333', 'Carla Dias'),
+('44444444444', 'Daniel Souza'),
+('55555555555', 'Eduarda Lima'),
+('66666666666', 'Felipe Rocha'),
+('77777777777', 'Gabriela Nunes'),
+('88888888888', 'Henrique Alves'),
+('99999999999', 'Isabela Martins'),
+('10101010101', 'Joao Pedro'),
+('20202020202', 'Karina Bastos'),
+('30303030303', 'Lucas Ribeiro'),
+('40404040404', 'Mariana Costa'),
+('50505050505', 'Nicolas Pereira'),
+('60606060606', 'Olivia Carvalho');
+
+update user set systemAdmin = 1 where userId = 1;
+-- =====================================================
+-- 2) ADMINS
+-- =====================================================
+INSERT INTO admin (userId) VALUES (1), (2);
+
+-- =====================================================
+-- 3) CHATS - GRUPOS (IDs 1 a 5)
+-- =====================================================
+INSERT INTO chat (chatType, groupName, description, dtCreation) VALUES
+('GROUP', 'Devs Brasil', 'Grupo para discussão de programação e tecnologia.', '2025-01-15'),
+('GROUP', 'Gamers Unite', 'Fórum para os amantes de videogames e e-sports.', '2025-02-20'),
+('GROUP', 'Culinária Rápida', 'Receitas práticas para o dia a dia.', '2025-03-10'),
+('GROUP', 'Fitness & Saúde', 'Dicas de treino, dieta e bem-estar.', '2025-04-05'),
+('GROUP', 'Música & Arte', 'Compartilhamento de músicas, bandas e arte em geral.', '2025-05-12');
+
+-- =====================================================
+-- 4) MEMBROS DOS GRUPOS (userInGroup)
+-- =====================================================
+INSERT INTO userInGroup (chatId, userId) VALUES
+-- Grupo 1: Devs Brasil
+(1, 1), (1, 2), (1, 3), (1, 11), (1, 12),
+-- Grupo 2: Gamers Unite
+(2, 2), (2, 4), (2, 5), (2, 13), (2, 14),
+-- Grupo 3: Culinária Rápida
+(3, 1), (3, 6), (3, 7), (3, 8), (3, 15),
+-- Grupo 4: Fitness & Saúde
+(4, 9), (4, 10), (4, 11), (4, 12),
+-- Grupo 5: Música & Arte
+(5, 13), (5, 14), (5, 15), (5, 1);
+
+-- =====================================================
+-- 5) CHATS - DMs (IDs 6 a 10)
+-- =====================================================
+INSERT INTO chat (chatType, user1, user2) VALUES
+('DM', 1, 3),   -- Alice e Carla
+('DM', 2, 4),   -- Bruno e Daniel
+('DM', 5, 6),   -- Eduarda e Felipe
+('DM', 7, 8),   -- Gabriela e Henrique
+('DM', 9, 10);  -- Isabela e Joao
+
+-- =====================================================
+-- 6) MENSAGENS (80+)
+-- =====================================================
+
+-- Grupo 1: Devs Brasil (chatId = 1)
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('E aí, pessoal! Alguém já testou o novo C++23?', 1, 1),
+('Ainda não, tô preso no C++17 por causa do trabalho.', 1, 2),
+('C++ moderno é outro mundo. Os smart pointers salvam vidas.', 1, 11),
+('Alguém recomenda um bom livro de MySQL?', 1, 3),
+('O "High Performance MySQL" é a bíblia.', 1, 12),
+('Valeu! Vou dar uma olhada.', 1, 3);
+
+-- Grupo 2: Gamers Unite (chatId = 2)
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Quem vai jogar o novo Zelda no fim de semana?', 2, 2),
+('Eu! Tô contando os minutos.', 2, 4),
+('Alguém aqui joga Valorant?', 2, 5),
+('Eu jogo, mas sou muito ruim.', 2, 13),
+('Chama pra um duo qualquer dia!', 2, 5),
+('O campeonato de e-sports vai ser épico.', 2, 14);
+
+-- Grupo 3: Culinária Rápida (chatId = 3)
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Alguém tem uma receita de bolo de 5 minutos?', 3, 6),
+('Micro-ondas, caneca e 3 colheres de farinha. Só pesquisar "mug cake".', 3, 1),
+('Dica de ouro: não esqueça o fermento.', 3, 7),
+('O que fazer com frango congelado?', 3, 8),
+('Sous vide é a melhor técnica!', 3, 15),
+('Sous vide pra frango congelado é exagero kkkk', 3, 6);
+
+-- Grupo 4: Fitness & Saúde (chatId = 4)
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Bom dia! Alguém já testou treino HIIT?', 4, 9),
+('Sim, mas cuidado com as articulações.', 4, 10),
+('A melhor coisa que fiz foi começar a correr.', 4, 11),
+('Eu prefiro musculação. Meus joelhos agradecem.', 4, 12),
+('E a alimentação, como vocês estão?', 4, 9),
+('Proteína e carboidrato, sem mistério.', 4, 10);
+
+-- Grupo 5: Música & Arte (chatId = 5)
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Alguém foi no show do Coldplay?', 5, 13),
+('Eu fui! Foi surreal.', 5, 14),
+('Prefiro o rock clássico. Queen, Led, Pink Floyd.', 5, 15),
+('Já ouviram o novo álbum da Taylor Swift?', 5, 1),
+('Não é meu estilo, mas reconheço o talento.', 5, 13),
+('A arte do álbum é incrível.', 5, 14);
+
+-- DM 1: Alice (1) e Carla (3) - chatId = 6
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Oi Carla, tudo bem?', 6, 1),
+('Oi Alice! Tudo ótimo, e você?', 6, 3),
+('Tô precisando de ajuda com o projeto de banco.', 6, 1),
+('Claro, o que você precisa?', 6, 3),
+('Como faço para achar os alunos que pegaram exatamente os mesmos livros?', 6, 1),
+('Usa dupla negação! NOT EXISTS nos dois sentidos.', 6, 3);
+
+-- DM 2: Bruno (2) e Daniel (4) - chatId = 7
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Bruno, vai no jogo amanhã?', 7, 4),
+('Vou sim! Que horas?', 7, 2),
+('19h no estádio.', 7, 4),
+('Fechado!', 7, 2);
+
+-- DM 3: Eduarda (5) e Felipe (6) - chatId = 8
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Felipe, você tem o link daquela receita?', 8, 5),
+('Tenho, vou te mandar.', 8, 6),
+('Obrigada!', 8, 5);
+
+-- DM 4: Gabriela (7) e Henrique (8) - chatId = 9
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('Gabriela, você viu o relatório de vendas?', 9, 8),
+('Vi, tá excelente!', 9, 7),
+('Vamos apresentar na reunião.', 9, 8);
+
+-- DM 5: Isabela (9) e Joao (10) - chatId = 10
+INSERT INTO msg (msgTxt, chatId, sender) VALUES
+('João, pode me ajudar com o treino?', 10, 9),
+('Claro, qual é o objetivo?', 10, 10),
+('Ganhar resistência.', 10, 9),
+('Então vamos focar em cardio e HIIT.', 10, 10);
+
+-- =====================================================
+-- 7) REPORTS
+-- =====================================================
+INSERT INTO reports (userId, chatId, dtReport, reason) VALUES
+(1, 2, '2026-09-01', 'SPAM'),
+(3, 1, '2026-09-02', 'HATE'),
+(5, 4, '2026-09-05', 'ILLEGAL'),
+(9, 5, '2026-09-10', 'SPAM'),
+(12, 3, '2026-09-12', 'HATE');
+
+-- =====================================================
+-- 8) Ajustes de AUTO_INCREMENT
+-- =====================================================
+ALTER TABLE `user` AUTO_INCREMENT = 16;
+ALTER TABLE chat AUTO_INCREMENT = 11;
+
+
+insert into admin (userId) values (1);
